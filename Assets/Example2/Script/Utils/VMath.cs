@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using UnityEngine;
 
 namespace Example2.Utils
@@ -9,7 +8,7 @@ namespace Example2.Utils
         public static Vector3 ApproximateNormalize(this Vector3 v)
         {
             var num = ApproximateMagnitude(v);
-            if ((double) num > 9.99999974737875E-06)
+            if (num > 9.99999974737875E-06)
                 return v / num;
            
             return Vector3.zero;
@@ -19,8 +18,7 @@ namespace Example2.Utils
         {
             return ASqrt1(v.x * v.x + v.y * v.y + v.z * v.z);
         }
-        
-        
+           
         public static float ApproximateDistanceTo(this Vector3 from, Vector3 to) => ApproximateDistance(from, to);
 
         public static float ApproximateDistance(Vector3 v1, Vector3 v2)

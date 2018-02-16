@@ -8,23 +8,25 @@
 //------------------------------------------------------------------------------
 public static class GameComponentsLookup {
 
-    public const int Boid = 0;
-    public const int Bounds = 1;
-    public const int Config = 2;
-    public const int Frame = 3;
-    public const int Goal = 4;
-    public const int Id = 5;
-    public const int Position = 6;
-    public const int Renderer = 7;
-    public const int Rotation = 8;
-    public const int SpatialHashes = 9;
-    public const int Speed = 10;
-    public const int Transform = 11;
-    public const int World = 12;
+    public const int AABB = 0;
+    public const int Boid = 1;
+    public const int Bounds = 2;
+    public const int Config = 3;
+    public const int Frame = 4;
+    public const int Goal = 5;
+    public const int Id = 6;
+    public const int Position = 7;
+    public const int Renderer = 8;
+    public const int Rotation = 9;
+    public const int SpatialHashes = 10;
+    public const int Speed = 11;
+    public const int Transform = 12;
+    public const int World = 13;
 
-    public const int TotalComponents = 13;
+    public const int TotalComponents = 14;
 
     public static readonly string[] componentNames = {
+        "AABB",
         "Boid",
         "Bounds",
         "Config",
@@ -41,6 +43,7 @@ public static class GameComponentsLookup {
     };
 
     public static readonly System.Type[] componentTypes = {
+        typeof(Example2.AABBComponent),
         typeof(Example2.BoidComponent),
         typeof(Example2.BoundsComponent),
         typeof(Example2.ConfigComponent),

@@ -103,6 +103,12 @@ namespace Example2
     }
     
     [Game]
+    public struct AABBComponent : IComponent
+    {
+        public Bounds value;
+    }
+    
+    [Game]
     public struct TransformComponent : IComponent
     {
         public Transform value;

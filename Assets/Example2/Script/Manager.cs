@@ -2,6 +2,8 @@
 using Example2.ParalelSpatialHash;
 using Example2.SpatialHash;
 using Example2.UnityPhysics;
+using Smooth.Pools;
+using Smooth.Slinq;
 using UnityEngine;
 
 namespace Example2
@@ -91,7 +93,47 @@ namespace Example2
             {
                 Gizmos.color = Color.green;
                 Gizmos.DrawSphere(contexts.game.worldEntity.goal.value, 0.5f);
+
+                contexts.game.GetGroup(GameMatcher.Boid)
+                    .Slinq()
+                    .Where(e => e.hasBounds)
+                    .Select(e => e.bounds.value)
+                    .ForEach(DrawBounds, Color.magenta);
             }
+        }
+
+        private static void DrawBounds(Bounds bounds, Color color)
+        {
+            Gizmos.color = color;
+
+            var center = bounds.center;
+            var extents = bounds.extents;
+            var points = ListPool<Vector3>.Instance.Borrow();
+            points.Add(center + new Vector3( extents.x,  extents.y,  extents.z));
+            points.Add(center + new Vector3( extents.x,  extents.y, -extents.z));
+            points.Add(center + new Vector3( extents.x, -extents.y,  extents.z));
+            points.Add(center + new Vector3( extents.x, -extents.y, -extents.z));
+            points.Add(center + new Vector3(-extents.x,  extents.y,  extents.z));
+            points.Add(center + new Vector3(-extents.x,  extents.y, -extents.z));
+            points.Add(center + new Vector3(-extents.x, -extents.y,  extents.z));
+            points.Add(center + new Vector3(-extents.x, -extents.y, -extents.z));
+            
+            Gizmos.DrawLine(points[7], points[5]);
+            Gizmos.DrawLine(points[3], points[1]);
+            Gizmos.DrawLine(points[6], points[4]);
+            Gizmos.DrawLine(points[2], points[0]);
+            
+            Gizmos.DrawLine(points[5], points[1]);
+            Gizmos.DrawLine(points[7], points[3]);
+            Gizmos.DrawLine(points[4], points[0]);
+            Gizmos.DrawLine(points[6], points[2]);
+            
+            Gizmos.DrawLine(points[5], points[4]);
+            Gizmos.DrawLine(points[1], points[0]);
+            Gizmos.DrawLine(points[7], points[6]);
+            Gizmos.DrawLine(points[3], points[2]);
+            
+            ListPool<Vector3>.Instance.Release(points);
         }
     }
 }

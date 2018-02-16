@@ -1,15 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Entitas;
-using Example2.Utils;
 using Smooth.Pools;
-using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.Profiling;
-using UnityEngine.UI;
-using Random = UnityEngine.Random;
 
 namespace Example2.ParalelSpatialHash
 {

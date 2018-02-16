@@ -1,0 +1,152 @@
+﻿#pragma kernel CSBoidMove
+
+#define BLOCK_AMOUNT      8
+#define BLOCK_DIMEN       uint3(BLOCK_AMOUNT, BLOCK_AMOUNT, BLOCK_AMOUNT)
+#define BLOCK_SIZE        (BLOCK_AMOUNT * BLOCK_AMOUNT * BLOCK_AMOUNT)
+
+#include "./Utils/Quaternion.compute"
+#include "./Utils/Hash.compute"
+#include "./Utils/Math.compute"
+
+struct Boid
+{
+  float4 rotation;
+  float3 position;
+  float speed;
+  int hash;
+};
+
+StructuredBuffer<Boid>   g_boidIn;
+RWStructuredBuffer<Boid> g_boidOut;
+
+StructuredBuffer<int2>    g_keyIn;
+RWStructuredBuffer<int2>  g_keyOut;
+
+const float4 g_params0;
+const float4 g_params1;
+const float4 g_params2;
+const uint4  g_params_uint;
+
+#define GOAL              (g_params0.xyz)
+#define DELTA_TIME        (g_params0.w)
+
+#define MIN_DISTANCE      (g_params1.x)
+#define MAX_DISTANCE      (g_params1.y)
+#define MIN_SPEED         (g_params1.z)
+#define MAX_SPEED         (g_params1.w)
+
+#define CENTER_FACTOR     (g_params2.x)
+#define AVOID_FACTOR      (g_params2.y)
+#define DIRECTION_FACTOR  (g_params2.z)
+#define CELL_FACTOR       (g_params2.w)
+
+#define GRID_DIMEN        (g_params_uint.xyz)
+#define BUFFER_SIZE       (g_params_uint.w)
+
+int upperIndex(in StructuredBuffer<int2> buffer, int value, int start, int end)
+{
+    int l = start;
+    int h = end;
+    while (h - l > 1)
+    {
+        int mid = (h + l) >> 1;
+        int2 v = buffer[mid];
+        if (v.x > value)
+            h = mid;
+        else
+            l = mid;
+            
+    }
+    return l + 1;
+}
+
+int lowerIndex(in StructuredBuffer<int2> buffer, int value, int start, int end)
+{
+    int l = start;
+    int h = end;
+    while (h - l > 1)
+    {
+        int mid = (h + l) >> 1;
+        int2 v = buffer[mid];
+        if (v.x < value)
+            l = mid;
+        else
+            h = mid;
+    }
+    return l + 1;
+}
+
+[numthreads(BLOCK_DIMEN.x, BLOCK_DIMEN.x, BLOCK_DIMEN.x)] 
+void CSBoidMove(uint3 Gid  : SV_GroupID, 
+                uint3 DTid : SV_DispatchThreadID, 
+                uint3 GTid : SV_GroupThreadID, 
+                uint  GI   : SV_GroupIndex) 
+{
+	uint bid = BLOCK_SIZE * to1D(Gid, GRID_DIMEN) + to1D(GTid, BLOCK_DIMEN); 
+	if (bid >= BUFFER_SIZE) return;
+	
+    Boid b = g_boidIn[bid];
+    
+    //-------------- COMPARE AGAINST OTHERS
+    float3 centerSum = (float3)0;
+    float3 avoidSum  = (float3)0;
+    float  speedSum  = (float)0;
+
+    uint count = 0;
+    // For every boid in the system, check if it's too close
+    int start = lowerIndex(g_keyIn, b.hash, 0, BUFFER_SIZE);
+    int end   = upperIndex(g_keyIn, b.hash, 0, BUFFER_SIZE);
+    for (int index = start; index < end; index++)  
+    {
+        uint nextIndex = g_keyIn[index].y;
+        if (bid == nextIndex || nextIndex < 0 && nextIndex >= BUFFER_SIZE) {
+            continue;
+        }
+        
+        Boid next = g_boidIn[nextIndex];
+        
+        // Distance
+        float3 diff = b.position - next.position;
+        float distance = length(diff);
+        if (distance > MAX_DISTANCE) continue;
+        
+        centerSum += next.position;
+        speedSum += next.speed;
+        
+        if (distance > 0 && distance < MIN_DISTANCE) 
+            avoidSum += (normalizedVector(diff) / distance);
+        
+        count++;
+    }
+    
+    float  speed = b.speed;
+    float3 dir = normalizedVector(GOAL - b.position);
+    float3 center = (float3)0;
+    float3 avoid  = (float3)0;
+    if (count > 0){
+        dir   *= DIRECTION_FACTOR;
+        center = normalizedVector(centerSum / count - b.position) * CENTER_FACTOR;
+        avoid  = normalizedVector(avoidSum / count) * AVOID_FACTOR;
+        speed  = speedSum / count;
+    }
+    
+    if (speed > MAX_SPEED) speed = MAX_SPEED;
+    if (speed < MIN_SPEED) speed = MIN_SPEED;
+    
+    float4 rotation = slerp(b.rotation, lookRotation(dir + center  + avoid), DELTA_TIME * speed);
+    float3 position = b.position + (rotate(rotation, float3(0.0, 0.0, 1.0)) * DELTA_TIME * speed);
+    int h = (hash(position, CELL_FACTOR));
+    
+    //-------------- UPDATE BOID DATA
+    b.rotation = rotation;
+    b.position = position;
+    b.speed = speed;
+    b.hash = h;
+    
+    //-------------- OUTPUT RESULT
+    g_boidOut[bid] = b;
+    g_keyOut[bid] = int2(h, bid);
+}
+
+
+
