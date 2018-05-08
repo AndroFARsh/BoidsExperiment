@@ -16,6 +16,8 @@ struct Boid
   int hash;
 };
 
+RWStructuredBuffer<Boid> g_test;
+
 StructuredBuffer<Boid>   g_boidIn;
 RWStructuredBuffer<Boid> g_boidOut;
 
@@ -76,17 +78,19 @@ int lowerIndex(in StructuredBuffer<int2> buffer, int value, int start, int end)
     return l + 1;
 }
 
-[numthreads(BLOCK_DIMEN.x, BLOCK_DIMEN.x, BLOCK_DIMEN.x)] 
+[numthreads(BLOCK_DIMEN.x, BLOCK_DIMEN.y, BLOCK_DIMEN.z)] 
 void CSBoidMove(uint3 Gid  : SV_GroupID, 
                 uint3 DTid : SV_DispatchThreadID, 
                 uint3 GTid : SV_GroupThreadID, 
                 uint  GI   : SV_GroupIndex) 
 {
-	uint bid = BLOCK_SIZE * to1D(Gid, GRID_DIMEN) + to1D(GTid, BLOCK_DIMEN); 
-	if (bid >= BUFFER_SIZE) return;
-	
-    Boid b = g_boidIn[bid];
+    uint tid = to1D(GTid, BLOCK_DIMEN);
+    uint gid = to1D(Gid, GRID_DIMEN);
+    uint bid = tid + gid  * BLOCK_SIZE;
     
+	if (bid >= BUFFER_SIZE) return;
+	Boid b = g_boidIn[bid];
+	
     //-------------- COMPARE AGAINST OTHERS
     float3 centerSum = (float3)0;
     float3 avoidSum  = (float3)0;
@@ -98,12 +102,12 @@ void CSBoidMove(uint3 Gid  : SV_GroupID,
     int end   = upperIndex(g_keyIn, b.hash, 0, BUFFER_SIZE);
     for (int index = start; index < end; index++)  
     {
-        uint nextIndex = g_keyIn[index].y;
-        if (bid == nextIndex || nextIndex < 0 && nextIndex >= BUFFER_SIZE) {
+        uint nextBid = g_keyIn[index].y;
+        if (bid == nextBid || nextBid < 0 && nextBid >= BUFFER_SIZE) {
             continue;
         }
         
-        Boid next = g_boidIn[nextIndex];
+        Boid next = g_boidIn[nextBid];
         
         // Distance
         float3 diff = b.position - next.position;
@@ -116,7 +120,7 @@ void CSBoidMove(uint3 Gid  : SV_GroupID,
         if (distance > 0 && distance < MIN_DISTANCE) 
             avoidSum += (normalizedVector(diff) / distance);
         
-        count++;
+        ++count;
     }
     
     float  speed = b.speed;
@@ -138,14 +142,17 @@ void CSBoidMove(uint3 Gid  : SV_GroupID,
     int h = (hash(position, CELL_FACTOR));
     
     //-------------- UPDATE BOID DATA
-    b.rotation = rotation;
-    b.position = position;
-    b.speed = speed;
-    b.hash = h;
+    Boid newBoid = (Boid)-1;
+    newBoid.rotation = rotation;
+    newBoid.position = position;
+    newBoid.speed = speed;
+    newBoid.hash = h;
     
     //-------------- OUTPUT RESULT
-    g_boidOut[bid] = b;
+    g_boidOut[bid] = newBoid;
     g_keyOut[bid] = int2(h, bid);
+    
+    g_test[bid] = newBoid;
 }
 
 

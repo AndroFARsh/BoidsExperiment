@@ -32,29 +32,6 @@ namespace Example3
         
         protected Vector3 Goal { get; private set; }
 
-        protected Vector3Int CalcGridDimention(int kernelIndex, int length)
-        {
-            uint x;
-            uint y;
-            uint z;
-            shader.GetKernelThreadGroupSizes(kernelIndex, out x, out y, out z);
-
-            var totalThreads = x * y * z;
-            var numGroups = length % totalThreads != 0
-                ? length / totalThreads + 1
-                : length / totalThreads;
-
-            int dimZ, dimY, dimX;
-            dimZ = dimY = (int) Mathf.Max(Mathf.Pow(numGroups, SQR_3), 1);
-            dimX = Mathf.CeilToInt(numGroups / (float) (dimY * dimZ));
-            return new Vector3Int
-            {
-                x = dimX,
-                y = dimY,
-                z = dimZ
-            };
-        }
-
         private void Start()
         {
             UpdateGoal();
@@ -95,5 +72,12 @@ namespace Example3
         protected abstract void Init();
 
         protected abstract void UpdateFrame();
+        
+        protected static void Swap(ref ComputeBuffer first, ref ComputeBuffer second)
+        {
+            var tmp = first;
+            first = second;
+            second = tmp;
+        }
     }
 }

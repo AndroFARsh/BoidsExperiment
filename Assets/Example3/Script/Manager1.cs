@@ -16,7 +16,7 @@ namespace Example3
         private const string PARAM_OUT_BOID_BUFF   = "g_boidOut";
         private const string PARAM_CONSUME_BUFF    = "g_consume";
 
-        [SerializeField] protected GameObject boidPrefab;
+        [SerializeField] private GameObject boidPrefab;
         
         private int kernelIndex;
         
@@ -69,8 +69,8 @@ namespace Example3
         {
             if (boidsNumber == 0) return;
 
-            boidsEvenFrameBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8, ComputeBufferType.Append);
-            boidsOddFrameBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8, ComputeBufferType.Append);
+            boidsEvenFrameBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8);
+            boidsOddFrameBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8);
             consumeBuffer = new ComputeBuffer(boidsNumber, sizeof(int), ComputeBufferType.Append);
            
             var item = (int) Mathf.Pow(boidsNumber, SQR_3);

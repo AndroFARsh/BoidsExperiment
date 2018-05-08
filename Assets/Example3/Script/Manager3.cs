@@ -18,34 +18,31 @@ namespace Example3
         private const string PARAM_OUT_KEY_BUFF = "g_keyOut";
         private const string PARAM_IN_KEY_BUFF = "g_keyIn";
 
+        [SerializeField] private Mesh boidMesh;
+        [SerializeField] private Material boidMaterial;
+        [SerializeField] private Vector3 boidScale = new Vector3(0.3f, 0.3f, 0.7f);
+        [SerializeField] private ComputeShader gpuSortShader;
+
+        [Space(20)] [SerializeField] private float cellSize = 2;
+
         private int kernelIndexMove;
-
-        [SerializeField] protected Mesh boidMesh;
-        [SerializeField] protected Material boidMaterial;
-        [SerializeField] protected Vector3 boidScale = new Vector3(0.3f, 0.3f, 0.7f);
-        [SerializeField] protected ComputeShader gpuSortShader;
-
-        [Space(20)] [SerializeField] protected float cellSize = 2;
-
+        private int totalThreadsInBlock;
         private GpuSort gpuSort;
-        private Vector3Int gridDim;
-
+        
         private readonly List<Matrix4x4> matrix = new List<Matrix4x4>();
-        private bool isEvenFrame = true;
         private BoidData[] data;
         
         private ComputeBuffer inBoidsBuffer;
         private ComputeBuffer outBoidsBuffer;
         private ComputeBuffer inKeysBuffer;
         private ComputeBuffer outKeysBuffer;
-
-
+        
         // Use this for initialization
         protected override void Init()
         {
             gpuSort = new GpuSort(gpuSortShader);
             kernelIndexMove = shader.FindKernel(KERNEL_NAME_MOVE);
-
+            totalThreadsInBlock = shader.TotalThreadsInBlock(kernelIndexMove);
             InitBoidsBuffer();
         }
 
@@ -72,7 +69,8 @@ namespace Example3
             Graphics.DrawMeshInstanced(boidMesh, 0, boidMaterial, matrix);
             Profiler.EndSample();
 
-            isEvenFrame = !isEvenFrame;
+            Swap(ref inBoidsBuffer, ref outBoidsBuffer);
+            Swap(ref inKeysBuffer, ref outKeysBuffer);
         }
 
         private void OnDestroy()
@@ -87,12 +85,10 @@ namespace Example3
         {
             if (boidsNumber == 0) return;
 
-            gridDim = CalcGridDimention(kernelIndexMove, boidsNumber);
-
             inKeysBuffer = new ComputeBuffer(boidsNumber, sizeof(int)*2);
             outKeysBuffer = new ComputeBuffer(boidsNumber, sizeof(int)*2);
-            inBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8);
-            outBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8);
+            inBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8 + sizeof(int));
+            outBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8 + sizeof(int));
 
             var item = (int) Mathf.Pow(boidsNumber, SQR_3);
 
@@ -123,8 +119,10 @@ namespace Example3
 
         private void ComputeStepFrame()
         {
+            var grid = Utils.TrimToBlock(boidsNumber, totalThreadsInBlock);
+            
             Profiler.BeginSample("MoveBoids");
-            shader.SetInts(PARAM_UINT, gridDim.x, gridDim.y, gridDim.z, boidsNumber);
+            shader.SetInts(PARAM_UINT, grid, 1, 1, boidsNumber);
 
             shader.SetFloats(PARAM_0, Goal.x, Goal.y, Goal.z, Time.deltaTime);
             shader.SetFloats(PARAM_1, minFlockRadius, maxFlockRadius, minSpeed, maxSpeed);
@@ -135,7 +133,7 @@ namespace Example3
             shader.SetBuffer(kernelIndexMove, PARAM_OUT_KEY_BUFF, outKeysBuffer);
             shader.SetBuffer(kernelIndexMove, PARAM_IN_BOID_BUFF, inBoidsBuffer);
             shader.SetBuffer(kernelIndexMove, PARAM_OUT_BOID_BUFF, outBoidsBuffer);
-            shader.Dispatch(kernelIndexMove, gridDim.x, gridDim.y, gridDim.z);
+            shader.Dispatch(kernelIndexMove, grid, 1, 1);
             Profiler.EndSample();
 
             Profiler.BeginSample("SortNeighbor");

@@ -128,7 +128,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &791314110
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -142,7 +142,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   run: 0
   goalRadius: 10
-  boidsNumber: 10
+  boidsNumber: 10000
   maxFlockRadius: 5
   minFlockRadius: 2
   minSpeed: 2
@@ -299,7 +299,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1168188461
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -313,17 +313,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   run: 0
   goalRadius: 10
-  boidsNumber: 100
+  boidsNumber: 20000
   maxFlockRadius: 5
   minFlockRadius: 2
   minSpeed: 2
   maxSpeed: 5
   directionFactor: 1
-  centerFactor: 1
-  avoidFactor: 2
+  centerFactor: 0.2
+  avoidFactor: 5
   shader: {fileID: 7200000, guid: d6a03b4063e349c6afcdf79b61ed13db, type: 3}
   boidMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
-  boidMaterial: {fileID: 2100000, guid: 00989855a1a5944c3b103a634403bdca, type: 2}
+  boidMaterial: {fileID: 2100000, guid: dae22dc9c045049c5b31417da65c86ad, type: 2}
   boidScale: {x: 0.3, y: 0.3, z: 0.7}
   gpuSortShader: {fileID: 7200000, guid: 6b21657e04024e10b5c67be3443b2840, type: 3}
   cellSize: 2

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Example1;
 using UnityEngine;
 using UnityEngine.Profiling;
 using Random = UnityEngine.Random;
@@ -7,6 +8,9 @@ namespace Example3
 {
     public class Manager2 : BaseManager
     {
+        private const string MOVE_BOID = "MoveBoids";
+        private const string SORT_HASH = "SortBoidsHash";
+        
         private const string KERNEL_NAME_MOVE = "CSBoidMove";
 
         private const string PARAM_0 = "g_params0";
@@ -18,20 +22,20 @@ namespace Example3
         private const string PARAM_OUT_KEY_BUFF = "g_keyOut";
         private const string PARAM_IN_KEY_BUFF = "g_keyIn";
 
-        [SerializeField] protected GameObject boidPrefab;
-        [SerializeField] protected ComputeShader gpuSortShader;
-        [SerializeField] protected float cellSize = 2;
+        [SerializeField] private GameObject boidPrefab;
+        [SerializeField] private ComputeShader gpuSortShader;
+        [SerializeField] private float cellSize = 2;
 
         private int kernelIndexMove;
+        private int totalThreadsInBlock;
 
         private BoidData[] data;
         private ComputeBuffer inBoidsBuffer;
         private ComputeBuffer outBoidsBuffer;
         private ComputeBuffer inKeysBuffer;
         private ComputeBuffer outKeysBuffer;
-
+        
         private GpuSort gpuSort;
-        private Vector3Int gridDim;
         private readonly List<Transform> boidsTr = new List<Transform>();
 
         // Use this for initialization
@@ -39,6 +43,7 @@ namespace Example3
         {
             gpuSort = new GpuSort(gpuSortShader);
             kernelIndexMove = shader.FindKernel(KERNEL_NAME_MOVE);
+            totalThreadsInBlock = shader.TotalThreadsInBlock(kernelIndexMove);
             InitBoidsBuffer();
         }
 
@@ -73,12 +78,10 @@ namespace Example3
         {
             if (boidsNumber == 0) return;
 
-            gridDim = CalcGridDimention(kernelIndexMove, boidsNumber);
-
-            inKeysBuffer = new ComputeBuffer(boidsNumber, sizeof(int)*2);
-            outKeysBuffer = new ComputeBuffer(boidsNumber, sizeof(int)*2);
-            inBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8);
-            outBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8);
+            inKeysBuffer = new ComputeBuffer(boidsNumber, sizeof(int) * 2);
+            outKeysBuffer = new ComputeBuffer(boidsNumber, sizeof(int) * 2);
+            inBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8 + sizeof(int));
+            outBoidsBuffer = new ComputeBuffer(boidsNumber, sizeof(float) * 8 + sizeof(int));
 
             var item = (int) Mathf.Pow(boidsNumber, SQR_3);
 
@@ -115,8 +118,11 @@ namespace Example3
 
         private void ComputeStepFrame()
         {
-            Profiler.BeginSample("MoveBoids");
-            shader.SetInts(PARAM_UINT, gridDim.x, gridDim.y, gridDim.z, boidsNumber);
+            if (boidsNumber == 0) return;
+            var grid = Utils.TrimToBlock(boidsNumber, totalThreadsInBlock);
+            
+            Profiler.BeginSample(MOVE_BOID);
+            shader.SetInts(PARAM_UINT, grid, 1, 1, boidsNumber);
 
             shader.SetFloats(PARAM_0, Goal.x, Goal.y, Goal.z, Time.deltaTime);
             shader.SetFloats(PARAM_1, minFlockRadius, maxFlockRadius, minSpeed, maxSpeed);
@@ -127,19 +133,12 @@ namespace Example3
             shader.SetBuffer(kernelIndexMove, PARAM_OUT_KEY_BUFF, outKeysBuffer);
             shader.SetBuffer(kernelIndexMove, PARAM_IN_BOID_BUFF, inBoidsBuffer);
             shader.SetBuffer(kernelIndexMove, PARAM_OUT_BOID_BUFF, outBoidsBuffer);
-            shader.Dispatch(kernelIndexMove, gridDim.x, gridDim.y, gridDim.z);
+            shader.Dispatch(kernelIndexMove, grid, 1, 1);
             Profiler.EndSample();
-
-            Profiler.BeginSample("SortNeighbor");
+           
+            Profiler.BeginSample(SORT_HASH);
             gpuSort.Sort(outKeysBuffer, boidsNumber);
             Profiler.EndSample();
-        }
-
-        private static void Swap(ref ComputeBuffer first, ref ComputeBuffer second)
-        {
-            var tmp = first;
-            first = second;
-            second = tmp;
         }
 
         private struct BoidData
@@ -149,6 +148,11 @@ namespace Example3
 
             public float speed;
             public int hash;
+
+            public override string ToString()
+            {
+                return $"p:{position}; s:{speed}";
+            }
         }
     }
 }
