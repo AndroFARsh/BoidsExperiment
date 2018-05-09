@@ -13,7 +13,6 @@ struct Boid
   float4 rotation;
   float3 position;
   float speed;
-  int hash;
 };
 
 RWStructuredBuffer<Boid> g_test;
@@ -97,31 +96,36 @@ void CSBoidMove(uint3 Gid  : SV_GroupID,
     float  speedSum  = (float)0;
 
     uint count = 0;
+    for (int x=-1; x<=1; ++x) {
+    for (int y=-1; y<=1; ++y) {
+    for (int z=-1; z<=1; ++z) {
+        int h = hash(b.position + float3(x,y,z) * MIN_DISTANCE, CELL_FACTOR);
     
-    int start = lowerIndex(g_keyIn, b.hash, 0, BUFFER_SIZE);
-    int end   = upperIndex(g_keyIn, b.hash, 0, BUFFER_SIZE);
-    for (int index = start; index < end; index++)  
-    {
-        uint nextBid = g_keyIn[index].y;
-        if (bid == nextBid || nextBid < 0 && nextBid >= BUFFER_SIZE) {
-            continue;
+        int start = lowerIndex(g_keyIn, h, 0, BUFFER_SIZE);
+        int end   = upperIndex(g_keyIn, h, 0, BUFFER_SIZE);
+        for (int index = start; index < end; index++)  
+        {
+            uint nextBid = g_keyIn[index].y;
+            if (bid == nextBid || nextBid < 0 && nextBid >= BUFFER_SIZE) {
+                continue;
+            }
+            
+            Boid next = g_boidIn[nextBid];
+            
+            // Distance
+            float3 diff = b.position - next.position;
+            float distance = length(diff);
+            if (distance > MAX_DISTANCE) continue;
+            
+            centerSum += next.position;
+            speedSum += next.speed;
+            
+            if (distance > 0 && distance < MIN_DISTANCE) 
+                avoidSum += (normalizedVector(diff) / distance);
+            
+            ++count;
         }
-        
-        Boid next = g_boidIn[nextBid];
-        
-        // Distance
-        float3 diff = b.position - next.position;
-        float distance = length(diff);
-        if (distance > MAX_DISTANCE) continue;
-        
-        centerSum += next.position;
-        speedSum += next.speed;
-        
-        if (distance > 0 && distance < MIN_DISTANCE) 
-            avoidSum += (normalizedVector(diff) / distance);
-        
-        ++count;
-    }
+    }}}
     
     float  speed = b.speed;
     float3 dir = normalizedVector(GOAL - b.position);
@@ -146,7 +150,6 @@ void CSBoidMove(uint3 Gid  : SV_GroupID,
     newBoid.rotation = rotation;
     newBoid.position = position;
     newBoid.speed = speed;
-    newBoid.hash = h;
     
     //-------------- OUTPUT RESULT
     g_boidOut[bid] = newBoid;
